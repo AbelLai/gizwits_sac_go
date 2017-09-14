@@ -16,14 +16,14 @@ import (
 )
 
 var (
-	WriteChannel    chan string = make(chan string, 500)
-	ErrorLogChannel chan error  = make(chan error, 500)
-	InfoLogChannel  chan string = make(chan string, 500)
-	WarnLogChannel  chan string = make(chan string, 500)
+	writeChannel    chan string = make(chan string, 500)
+	errorLogChannel chan error  = make(chan error, 500)
+	infoLogChannel  chan string = make(chan string, 500)
+	warnLogChannel  chan string = make(chan string, 500)
 )
 
 func SetWriteChannelBuffer(channelBuffer int) {
-	WriteChannel = make(chan string, channelBuffer)
+	writeChannel = make(chan string, channelBuffer)
 }
 
 type SnotiClient struct {
@@ -113,7 +113,7 @@ func (s *SnotiClient) loopRemoteCtrl() {
 				} else {
 					data, err := sc.handleRemoteCtrlReq(writeData)
 					if err == nil {
-						WriteChannel <- data
+						writeChannel <- data
 					} else {
 						sc.logErr(errors.Wrap(err, "[SnotiClient Error] ====> Marshal Remote Control Req data failed"))
 					}
@@ -137,7 +137,7 @@ func (s *SnotiClient) heartbeat() {
 			if !sc.isClosed {
 				select {
 				case <-timer.C:
-					WriteChannel <- fmt.Sprintf("{\"cmd\": \"ping\"}")
+					writeChannel <- fmt.Sprintf("{\"cmd\": \"ping\"}")
 				}
 			} else {
 				break HEARTBEAT_LOOP
@@ -159,7 +159,7 @@ func (s *SnotiClient) loopWrite() {
 		for {
 			if !sc.isClosed {
 				select {
-				case msg := <-WriteChannel:
+				case msg := <-writeChannel:
 					err := sc.write(msg)
 					if sc.isNetErr(err) {
 						sc.logErr(err)
@@ -313,15 +313,15 @@ func (s *SnotiClient) log() {
 				break LOOP_LOGGER
 			} else {
 				select {
-				case err := <-ErrorLogChannel:
+				case err := <-errorLogChannel:
 					if !noLogger {
 						logger.Error(fmt.Sprintf("%+v", err))
 					}
-				case info := <-InfoLogChannel:
+				case info := <-infoLogChannel:
 					if !noLogger {
 						logger.Info(info)
 					}
-				case warn := <-WarnLogChannel:
+				case warn := <-warnLogChannel:
 					if !noLogger {
 						logger.Warn(warn)
 					}
@@ -332,15 +332,15 @@ func (s *SnotiClient) log() {
 }
 
 func (s *SnotiClient) logInfo(str string) {
-	InfoLogChannel <- str
+	infoLogChannel <- str
 }
 
 func (s *SnotiClient) logErr(err error) {
-	ErrorLogChannel <- err
+	errorLogChannel <- err
 }
 
 func (s *SnotiClient) logWarn(str string) {
-	WarnLogChannel <- str
+	warnLogChannel <- str
 }
 
 func blankString(input string) bool {
